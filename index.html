@@ -510,6 +510,7 @@ $('btnPost').addEventListener('click', async () => {
     $('postErr').textContent = '';
     render();
     thank();
+    $('board').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch(e){
     $('postErr').textContent = '등록하지 못했습니다. 잠시 후 다시 시도해 주세요.';
   } finally {
