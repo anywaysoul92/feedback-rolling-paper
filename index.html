@@ -17,6 +17,7 @@ h1{font-size:20px;font-weight:600;margin:8px 0 4px}
 label{display:block;font-size:13px;color:var(--sub);margin:12px 0 6px}
 input[type=text],textarea{width:100%;font:inherit;font-size:16px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
 textarea{resize:none;min-height:96px}
+textarea.compose{min-height:68px}
 input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 button{font:inherit;font-size:16px;cursor:pointer;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:0 16px}
 button.primary{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
@@ -72,6 +73,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   .bar{margin-top:0}
   .board{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
   textarea{min-height:140px}
+  textarea.compose{min-height:90px}
   .note{min-height:150px;padding:16px}
   .note .body{font-size:15px}
   .note .tag{font-size:12px}
@@ -138,14 +140,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <span class="me" id="meText"></span>
       <button id="btnChange" type="button">정보 변경</button>
     </div>
-    <div class="chips" id="catChips" role="group" aria-label="의견 종류">
-      <button type="button" class="chip" data-cat="good" aria-pressed="true">잘한 부분</button>
-      <button type="button" class="chip" data-cat="improve" aria-pressed="false">개선이 필요한 부분</button>
-      <button type="button" class="chip" data-cat="etc" aria-pressed="false">기타·질문</button>
-    </div>
-    <label for="content" style="margin-top:12px">의견</label>
-    <textarea id="content" maxlength="200" placeholder="구체적으로 적어주시면 큰 도움이 됩니다"></textarea>
-    <div class="row" style="margin-top:6px"><span class="cnt" id="cnt">0 / 200</span></div>
+    <label for="contentGood">잘한 부분</label>
+    <textarea id="contentGood" class="compose" maxlength="200" placeholder="좋았던 점을 적어주세요"></textarea>
+    <div class="row" style="margin-top:4px"><span class="cnt" id="cntGood">0 / 200</span></div>
+
+    <label for="contentImprove" style="margin-top:12px">개선이 필요한 부분</label>
+    <textarea id="contentImprove" class="compose" maxlength="200" placeholder="아쉬웠던 점을 적어주세요"></textarea>
+    <div class="row" style="margin-top:4px"><span class="cnt" id="cntImprove">0 / 200</span></div>
+
+    <label for="contentEtc" style="margin-top:12px">기타 · 질문</label>
+    <textarea id="contentEtc" class="compose" maxlength="200" placeholder="그 외 의견이나 궁금한 점을 적어주세요"></textarea>
+    <div class="row" style="margin-top:4px"><span class="cnt" id="cntEtc">0 / 200</span></div>
+
     <div class="hint">비방과 욕설은 마음의 상처가 됩니다. 따뜻한 응원의 말은 힘이 됩니다.<br>환자 정보와 개인정보는 적지 마세요.<br>교육 관련 문의: <a href="mailto:jmkim@jlkgroup.com">jmkim@jlkgroup.com</a></div>
     <p id="postErr" class="err" role="alert"></p>
     <button id="btnPost" class="primary block" style="margin-top:8px">붙이기</button>
@@ -212,7 +218,12 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const LABEL = { good: '잘한 부분', improve: '개선이 필요한 부분', etc: '기타·질문' };
 const notes = new Map();
-let cat = 'good', filter = 'all', sb = null, lastPost = 0;
+let filter = 'all', sb = null, lastPost = 0;
+const COMPOSE_FIELDS = [
+  { cat: 'good', id: 'contentGood', cntId: 'cntGood' },
+  { cat: 'improve', id: 'contentImprove', cntId: 'cntImprove' },
+  { cat: 'etc', id: 'contentEtc', cntId: 'cntEtc' }
+];
 
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
@@ -471,20 +482,17 @@ $('btnStart').addEventListener('click', () => {
 ['dept', 'author'].forEach(id => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnStart').click(); }));
 $('btnChange').addEventListener('click', showEnter);
 
-$('catChips').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-cat]'); if (!b) return;
-  cat = b.dataset.cat;
-  document.querySelectorAll('#catChips .chip').forEach(c => c.setAttribute('aria-pressed', String(c === b)));
-});
 $('filterChips').addEventListener('click', (e) => {
   const b = e.target.closest('[data-f]'); if (!b) return;
   filter = b.dataset.f;
   document.querySelectorAll('#filterChips .chip').forEach(c => c.setAttribute('aria-pressed', String(c === b)));
   render();
 });
-$('content').addEventListener('input', () => {
-  $('cnt').textContent = $('content').value.length + ' / 200';
-  $('postErr').textContent = '';
+COMPOSE_FIELDS.forEach(f => {
+  $(f.id).addEventListener('input', () => {
+    $(f.cntId).textContent = $(f.id).value.length + ' / 200';
+    $('postErr').textContent = '';
+  });
 });
 
 function thank(){
@@ -496,17 +504,18 @@ function thank(){
 }
 
 $('btnPost').addEventListener('click', async () => {
-  const text = $('content').value.trim();
-  if (!text) { $('postErr').textContent = '의견을 입력해 주세요'; $('content').focus(); return; }
+  const entries = COMPOSE_FIELDS.map(f => Object.assign({}, f, { text: $(f.id).value.trim() })).filter(f => f.text);
+  if (!entries.length) { $('postErr').textContent = '의견을 한 가지 이상 입력해 주세요'; return; }
   if (Date.now() - lastPost < 3000) { $('postErr').textContent = '잠시 후 다시 붙여주세요'; return; }
   const btn = $('btnPost');
   btn.disabled = true;
   try {
-    const row = await insertNote({ dept: lsGet('fb_dept'), author: lsGet('fb_author') || '익명', category: cat, content: text });
-    notes.set(String(row.id), row);
+    for (const f of entries) {
+      const row = await insertNote({ dept: lsGet('fb_dept'), author: lsGet('fb_author') || '익명', category: f.cat, content: f.text });
+      notes.set(String(row.id), row);
+    }
     lastPost = Date.now();
-    $('content').value = '';
-    $('cnt').textContent = '0 / 200';
+    entries.forEach(f => { $(f.id).value = ''; $(f.cntId).textContent = '0 / 200'; });
     $('postErr').textContent = '';
     render();
     thank();
