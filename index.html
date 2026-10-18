@@ -436,7 +436,7 @@ function hideAll(){
 function showBoard(){
   hideAll();
   $('screenBoard').classList.remove('hidden');
-  $('meText').textContent = lsGet('fb_dept') + ' · ' + (lsGet('fb_author') || '익명');
+  $('meText').textContent = (lsGet('fb_dept') || '관리자') + ' · ' + (lsGet('fb_author') || '익명');
   $('btnRate').classList.toggle('hidden', !!lsGet('fb_rated'));
   refresh();
   if (booted) return;
@@ -511,7 +511,7 @@ $('btnPost').addEventListener('click', async () => {
   btn.disabled = true;
   try {
     for (const f of entries) {
-      const row = await insertNote({ dept: lsGet('fb_dept'), author: lsGet('fb_author') || '익명', category: f.cat, content: f.text });
+      const row = await insertNote({ dept: lsGet('fb_dept') || '관리자', author: lsGet('fb_author') || '익명', category: f.cat, content: f.text });
       notes.set(String(row.id), row);
     }
     lastPost = Date.now();
@@ -642,6 +642,7 @@ $('btnSkip').addEventListener('click', () => { lsSet('fb_skip', '1'); showBoard(
 $('btnRate').addEventListener('click', showSurvey);
 
 function route(){
+  if (new URLSearchParams(location.search).get('admin') === '1') { showBoard(); return; }
   if (!lsGet('fb_dept')) showEnter();
   else if (!lsGet('fb_rated') && !lsGet('fb_skip')) showSurvey();
   else showBoard();
