@@ -4,7 +4,7 @@ create table public.feedback (
   created_at timestamptz not null default now(),
   dept text not null check (char_length(dept) between 1 and 30),
   author text not null default '익명' check (char_length(author) between 1 and 20),
-  category text not null check (category in ('good', 'improve')),
+  category text not null check (category in ('good', 'improve', 'etc')),
   content text not null check (char_length(content) between 1 and 200),
   edited_at timestamptz
 );
